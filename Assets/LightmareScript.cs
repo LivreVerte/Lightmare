@@ -14,6 +14,7 @@ public class LightmareScript : MonoBehaviour {
 	public KMAudio Audio;
 	public KMBombInfo bomb;
 	public KMBombModule module;
+	public KMColorblindMode ColorblindMode;
 
 	public Mesh[] shapes = new Mesh[11];
 	public Sprite[] patterns = new Sprite[7];
@@ -21,6 +22,7 @@ public class LightmareScript : MonoBehaviour {
 	public KMSelectable Button;
 	public GameObject Highlight; 
 	public TextMesh Display;
+	public TextMesh[] colorBlind = new TextMesh[7];
 	public Material[] buttonColors = new Material[8];
 	public Material[] ledColors = new Material[9];
 	public KMSelectable selectable;
@@ -65,6 +67,7 @@ public class LightmareScript : MonoBehaviour {
 	int[] chosenIndex = new int[4];
 	public GameObject[] stageLights = new GameObject[4];
 	int[] pressedColors = new int[4];
+	private bool colorblindModeEnabled;
 
 	void Awake(){
 		
@@ -72,7 +75,7 @@ public class LightmareScript : MonoBehaviour {
 		selectable.OnInteract += delegate () { ButtonPress(selectable); return false;};
 		moduleID = moduleIdCounter++;
 		lmID = lmCounter++;
-		Debug.LogFormat("[Lightmare #{0}] Commencing: Version 1:0:0",moduleID);
+		Debug.LogFormat("[Lightmare #{0}] Commencing: Version 1:1:0",moduleID);
 		StartCoroutine(ChooseMeshes());
 		
 		if(initialized == false){
@@ -156,6 +159,13 @@ public class LightmareScript : MonoBehaviour {
 		moduleSolved = true;
 		yield return null;
 		stageLights[stage].GetComponent<MeshRenderer>().material = ledColors[2];
+		colorBlind[0].text = "";
+		colorBlind[1].text = "";
+		colorBlind[2].text = "";
+		colorBlind[3].text = "";
+		colorBlind[4].text = "";
+		colorBlind[5].text = "";
+		colorBlind[6].text = "";
 		GetComponent<KMAudio>().PlaySoundAtTransform(sounds[3].name, transform);
 		for(int i = 0; i<= 3; i++){
 			foreach (GameObject LED in leds){LED.GetComponent<MeshRenderer>().material = ledColors[pressedColors[i]];}
@@ -185,7 +195,7 @@ public class LightmareScript : MonoBehaviour {
 		}
 		bool initialized = true;
 		//Debug.LogFormat("[Lightmare #{0}] The digit restriction is -",moduleID);
-
+		colorblindModeEnabled = ColorblindMode.ColorblindModeActive;
 		String Serial = bomb.GetSerialNumber();
 		for (int i = 0; i <= 5; i++){
 			base36[5-i] = BASE36ALPHABET.IndexOf(Serial[i]);
@@ -496,6 +506,10 @@ public class LightmareScript : MonoBehaviour {
         Command = Command.Trim().ToUpper();
         yield return null;
         string[] Commands = Command.Split(' ');
+		if (Commands.Length == 1 && (Commands[0] == "COLORBLIND" || Commands[0] == "COLOURBLIND")){
+			colorblindModeEnabled = true;
+			yield break;
+		}
         if (!"1234567".Contains(Commands[0][0]) || Commands[0].Length != 1){
             yield return "sendtochaterror Invalid command. The first statement must be a number from 1-7. ";
             yield break;
@@ -508,6 +522,10 @@ public class LightmareScript : MonoBehaviour {
 		}
 		string indeces = "KBGCRMYW";
 		int choson = indeces.IndexOf(Commands[1][0]);
+		if(stage == 3){
+			yield return "solve";
+			yield return "strike";
+		}
 		if("1234".Contains(Commands[1])){
 			while(ledStatus[int.Parse(Commands[0])-1] != int.Parse(Commands[1])){
 				yield return new WaitForSeconds(0.05f);
@@ -568,13 +586,19 @@ public class LightmareScript : MonoBehaviour {
 		ledStatus[index] = 0;
 		float time = UnityEngine.Random.Range(0.4f, 0.65f);
 		yield return new WaitForSeconds(UnityEngine.Random.Range(0.1f, 0.4f));
+		string[] colorblindColors = {"K", "B", "G", "C", "R", "M", "Y", "W", ""};
 		while(moduleSolved != true){
 			leds[index].GetComponent<MeshRenderer>().material = ledColors[ledFlashes[index, ledStatus[index]]];
+			if(colorblindModeEnabled){
+				colorBlind[index].text = colorblindColors[ledFlashes[index, ledStatus[index]]];
+			}
 			yield return new WaitForSeconds((time-0.15f));
 			if(moduleSolved == true){
+				colorBlind[index].text = "";
 				break;
 			}
 			leds[index].GetComponent<MeshRenderer>().material = ledColors[8];
+			colorBlind[index].text = "";
 			yield return new WaitForSeconds(0.15f);
 			ledStatus[index] = (ledStatus[index]+1)%5;
 		}
@@ -720,7 +744,7 @@ public class LightmareScript : MonoBehaviour {
     	return array;
     }
 	#pragma warning disable 414
-        private readonly string TwitchHelpMessage = @"Press at a certain step in the cycle by doing !{0} 1 2 to press when the first LED as described in the manual is in the second part of its sequence. Use !{0} 1 M to press when LED1 is displaying Magenta. Valid colors are KRGBCMYW. ";
+        private readonly string TwitchHelpMessage = @"Press at a certain step in the cycle by doing !{0} 1 2 to press when the first LED as described in the manual is in the second part of its sequence. Use !{0} 1 M to press when LED1 is displaying Magenta. Valid colors are KRGBCMYW. Do !{0} Colorblind for colorblind support. ";
     #pragma warning restore 414
 	IEnumerator TwitchHandleForcedSolve () { //Note: The way that this solver works is that it disables the restrictions to submit. 
         yield return null;
